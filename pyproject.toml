@@ -170,6 +170,7 @@ atomate2 = ["py.typed"]
 "atomate2.vasp.sets" = ["*.yaml"]
 "atomate2.cp2k.sets" = ["*.yaml"]
 "atomate2.cp2k.schemas.calc_types" = ["*.yaml"]
+"atomate2.jdftx.sets" = ["*.yaml"]
 
 [tool.versioningit.vcs]
 method = "git"
