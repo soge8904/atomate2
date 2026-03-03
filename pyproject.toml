@@ -68,6 +68,7 @@ forcefields = [
 torchsim = [
     "torch-sim-atomistic==0.5.0; python_version >= '3.12'"
 ]
+jdftx = ["pymatgen==2025.10.7"]
 approxneb = ["pymatgen-analysis-diffusion>=2024.7.15"]
 ase = ["ase>=3.26.0"]
 ase-ext = ["tblite>=0.3.0; platform_system=='Linux'"]
@@ -79,7 +80,7 @@ openmm = [
 fireworks = ["fireworks==2.0.8"]
 strict-openff = [
     "mdanalysis==2.10.0",
-    "monty==2025.3.3",
+    "monty==2026.2.18",
     "openmm-mdanalysis-reporter==0.1.0",
     "openmm==8.4.0.post2",
     "pymatgen==2025.10.7", # EXERCISE CAUTION WHEN UPDATING - open ff is extremely sensitive to pymatgen version
@@ -108,7 +109,7 @@ strict-forcefields-torch-limited = [
     # That enforces a simultaneous pin on torch / torchdata
     # Linux users can acces newer versions of dgl / torch / torchdata via conda.
     # Mac / Windows users will need to install from source
-    "dgl==2.2.0; sys_platform == 'darwin' or sys_platform == 'win32'",
+    "dgl==2.2.1; sys_platform == 'darwin' or sys_platform == 'win32'",
     "dgl<=2.4.0; sys_platform == 'linux'",
     "torch==2.2.2; sys_platform == 'darwin' or sys_platform == 'win32'",
     "torch==2.2.0; sys_platform == 'linux'",
@@ -117,7 +118,7 @@ strict-forcefields-torch-limited = [
     "numpy==1.26.4",
 ]
 strict-forcefields-e3nn-limited = [
-    "mace-torch==0.3.14",
+    "mace-torch==0.3.15",
     "torch-dftd==0.5.2",
 ]
 strict-forcefields-numpy-limited = [

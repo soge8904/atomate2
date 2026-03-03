@@ -254,8 +254,8 @@ class Atomate2Settings(BaseSettings):
 
     JDFTX_CMD: str = Field("jdftx", description="Command to run jdftx.")
 
-    JDFTX_PSEUDOS_DIR: Optional[str] = Field(
-        None, description="location of JDFTX pseudopotentials."
+    JDFTX_PSEUDOS_DIR: str = Field(
+        "GBRV_v1.5", description="location of JDFTX pseudopotentials."
     )
 
     @model_validator(mode="before")
