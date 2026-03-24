@@ -1,10 +1,7 @@
 """Core definitions of a JDFTx calculation document."""
 
-# mypy: ignore-errors
-
 import logging
 from pathlib import Path
-from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 from pymatgen.core.structure import Structure
@@ -25,16 +22,16 @@ class Convergence(BaseModel):
     converged: bool = Field(
         default=True, description="Whether the JDFTx calculation converged"
     )
-    geom_converged: Optional[bool] = Field(
+    geom_converged: bool | None = Field(
         default=True, description="Whether the ionic/lattice optimization converged"
     )
-    elec_converged: Optional[bool] = Field(
+    elec_converged: bool | None = Field(
         default=True, description="Whether the last electronic optimization converged"
     )
-    geom_converged_reason: Optional[str] = Field(
+    geom_converged_reason: str | None = Field(
         None, description="Reason ionic/lattice convergence was reached"
     )
-    elec_converged_reason: Optional[str] = Field(
+    elec_converged_reason: str | None = Field(
         None, description="Reason electronic convergence was reached"
     )
 
@@ -59,7 +56,7 @@ class Convergence(BaseModel):
 class RunStatistics(BaseModel):
     """JDFTx run statistics."""
 
-    total_time: Optional[float] = Field(
+    total_time: float | None = Field(
         0, description="Total wall time for this calculation"
     )
 
@@ -103,21 +100,21 @@ class CalculationInput(BaseModel):
 class CalculationOutput(BaseModel):
     """Document defining JDFTx calculation outputs."""
 
-    structure: Optional[Structure] = Field(
+    structure: Structure | None = Field(
         None,
         description="optimized geometry of the structure after calculation",
     )
-    parameters: Optional[dict] = Field(
+    parameters: dict | None = Field(
         None,
         description="JDFTXOutfile dictionary from last JDFTx run",
     )
-    forces: Optional[list] = Field(None, description="forces from last ionic step")
+    forces: list | None = Field(None, description="forces from last ionic step")
     energy: float = Field(None, description="Final energy")
     energy_type: str = Field(
         "F", description="Type of energy returned by JDFTx (e.g., F, G)"
     )
     mu: float = Field(None, description="Fermi level of last electronic step")
-    lowdin_charges: Optional[list] = Field(
+    lowdin_charges: list | None = Field(
         None, description="Lowdin charges from last electronic optimizaiton"
     )
     total_charge: float = Field(
@@ -126,17 +123,17 @@ class CalculationOutput(BaseModel):
             "Total system charge from last electronic step in numberof electrons"
         ),
     )
-    stress: Optional[list[list]] = Field(
+    stress: list[list] | None = Field(
         None, description="Stress from last lattice optimization step"
     )
-    cbm: Optional[float] = Field(
+    cbm: float | None = Field(
         None,
         description="Conduction band minimum / LUMO from last electronic optimization",
     )
-    vbm: Optional[float] = Field(
+    vbm: float | None = Field(
         None, description="Valence band maximum /HOMO from last electonic optimization"
     )
-    trajectory: Optional[Trajectory] = (
+    trajectory: Trajectory | None = (
         Field(None, description="Ionic trajectory from last JDFTx run"),
     )
 
@@ -175,11 +172,7 @@ class CalculationOutput(BaseModel):
         cbm = jdftxoutput.lumo
         vbm = jdftxoutput.homo
         structure = joutstruct_to_struct(joutstruct=optimized_structure)
-        if kwargs.get("store_trajectory", True):
-            trajectory: Trajectory = jdftxoutput.trajectory
-            trajectory = trajectory.as_dict()
-        else:
-            trajectory = None
+
         return cls(
             structure=structure,
             forces=forces,
@@ -191,7 +184,11 @@ class CalculationOutput(BaseModel):
             stress=stress,
             cbm=cbm,
             vbm=vbm,
-            trajectory=trajectory,
+            trajectory=(
+                jdftxoutput.trajectory.as_dict()
+                if kwargs.get("store_trajectory", True)
+                else None
+            ),
             parameters=jdftxoutput.to_dict(),
         )
 
@@ -219,11 +216,11 @@ class Calculation(BaseModel):
     @classmethod
     def from_files(
         cls,
-        dir_name: Union[Path, str],
-        jdftxinput_file: Union[Path, str],
-        jdftxoutput_file: Union[Path, str],
-        jdftxinput_kwargs: Optional[dict] = None,
-        jdftxoutput_kwargs: Optional[dict] = None,
+        dir_name: Path | str,
+        jdftxinput_file: Path | str,
+        jdftxoutput_file: Path | str,
+        jdftxinput_kwargs: dict | None = None,
+        jdftxoutput_kwargs: dict | None = None,
         # **jdftx_calculation_kwargs, #TODO implement optional calcdoc kwargs
     ) -> "Calculation":
         """
@@ -249,20 +246,20 @@ class Calculation(BaseModel):
         Calculation
             A JDFTx calculation document.
         """
-        jdftxinput_file = dir_name / jdftxinput_file
-        jdftxoutput_file = dir_name / jdftxoutput_file
+        jdftxinput_file = Path(dir_name) / jdftxinput_file
+        jdftxoutput_file = Path(dir_name) / jdftxoutput_file
 
-        jdftxinput_kwargs = jdftxinput_kwargs if jdftxinput_kwargs else {}
+        jdftxinput_kwargs = jdftxinput_kwargs or {}
         jdftxinput = JDFTXInfile.from_file(jdftxinput_file)
 
-        jdftxoutput_kwargs = jdftxoutput_kwargs if jdftxoutput_kwargs else {}
+        jdftxoutput_kwargs = jdftxoutput_kwargs or {}
         jdftxoutput = JDFTXOutfile.from_file(jdftxoutput_file)
 
         input_doc = CalculationInput.from_jdftxinput(jdftxinput, **jdftxinput_kwargs)
         output_doc = CalculationOutput.from_jdftxoutput(
             jdftxoutput, **jdftxoutput_kwargs
         )
-        logging.log(logging.DEBUG, f"{output_doc}")
+        logger.log(logging.DEBUG, f"{output_doc}")
         converged = Convergence.from_jdftxoutput(jdftxoutput)
         run_stats = RunStatistics.from_jdftxoutput(jdftxoutput)
 

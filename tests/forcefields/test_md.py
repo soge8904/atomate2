@@ -45,7 +45,7 @@ def test_maker_initialization(mlff):
 
 
 _mlffs_for_test = set(INSTALLED_MLFF).difference(
-    map(MLFF, ("Forcefield", "Allegro", "M3GNet", "MACE"))
+    map(MLFF, ("Forcefield", "Allegro", "M3GNet", "MACE", "Nequip"))
 )
 _md_test_params = sorted(product(_mlffs_for_test, [True, False]), key=str)
 
@@ -83,6 +83,7 @@ def test_ml_ff_md_maker(
         MLFF.MATPES_R2SCAN: -8.561729431152344,
         MLFF.FAIRChem: -5.4,
         MLFF.MatterSim: -5.4,
+        MLFF.UPET: -5.88,
     }
 
     # ASE can slightly change tolerances on structure positions
@@ -117,6 +118,8 @@ def test_ml_ff_md_maker(
     elif ff_name == MLFF.DeepMD:
         calculator_kwargs = {"model": get_deepmd_pretrained_model_path}
         unit_cell_structure = sr_ti_o3_structure.copy()
+    elif ff_name == MLFF.UPET:
+        calculator_kwargs = {"model": "pet-mad-xs"}
 
     structure = unit_cell_structure.to_conventional() * (2, 2, 2)
 

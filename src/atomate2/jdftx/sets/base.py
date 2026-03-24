@@ -21,7 +21,12 @@ from atomate2 import SETTINGS
 if TYPE_CHECKING:
     from pymatgen.core import Structure
 
-_BASE_JDFTX_SET = loadfn(get_mod_path("pymatgen.io.jdftx") / "BaseJdftxSet.yaml")
+# TODO: remove atomate2 import + yaml once pymatgen reorg is finalized / released
+for module_path in ("pymatgen.io.jdftx", "atomate2.jdftx.sets"):
+    if (_set_path := Path(get_mod_path(module_path) / "BaseJdftxSet.yaml")).exists():  # type: ignore[arg-type]
+        _BASE_JDFTX_SET = loadfn(_set_path)
+        break
+
 _GENERATION_CONFIG = loadfn(
     get_mod_path("atomate2.jdftx.sets") / "GenerationConfig.yaml"
 )
@@ -200,16 +205,15 @@ class JdftxInputGenerator(InputGenerator):
 
     def set_nbands(self, structure: Structure) -> None:
         """Set number of bands in DFT calculation."""
-        nelec = 0
-        for atom in structure.species:
-            nelec += _PSEUDO_CONFIG[self.pseudopotentials][str(atom)]
+        nelec = sum(
+            _PSEUDO_CONFIG[self.pseudopotentials][str(atom)]
+            for atom in structure.species
+        )
         nbands_add = int(nelec / 2) + 10
         nbands_mult = int(nelec / 2) * self.config_dict["bands_multiplier"]
         self.settings["elec-n-bands"] = max(nbands_add, nbands_mult)
 
-    def set_pseudos(
-        self,
-    ) -> None:
+    def set_pseudos(self) -> None:
         """Set ion-species tag corresponding to pseudopotentials."""
         if SETTINGS.JDFTX_PSEUDOS_DIR is not None:
             pseudos_str = str(
@@ -223,10 +227,8 @@ class JdftxInputGenerator(InputGenerator):
             for suffix in _PSEUDO_CONFIG[self.pseudopotentials]["suffixes"]
         ]
         # do not override pseudopotentials in settings
-        if "ion-species" in self.settings:
-            return
-        self.settings["ion-species"] = add_tags
-        return
+        if "ion-species" not in self.settings:
+            self.settings["ion-species"] = add_tags
 
     def set_mu(self) -> None:
         """Set absolute electron chemical potential (fermi level) for GC-DFT."""
