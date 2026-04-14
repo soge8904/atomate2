@@ -9,6 +9,7 @@ from enum import Enum
 from functools import cached_property
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
+from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,11 @@ from typing_extensions import assert_never, deprecated
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from typing import Any
+
+    try:
+        from torch import dtype as torch_dtype
+    except ImportError:
+        torch_dtype = str
 
     from ase.calculators.calculator import Calculator
 
@@ -229,7 +235,9 @@ class ForceFieldMixin:
 
 
 def ase_calculator(
-    calculator_meta: str | MLFF | dict, **kwargs: Any
+    calculator_meta: str | MLFF | dict,
+    default_dtype: str | torch_dtype | None = None,
+    **kwargs: Any,
 ) -> Calculator | None:
     """
     Create an ASE calculator from a given set of metadata.
@@ -246,7 +254,7 @@ def ase_calculator(
                 "@callable": "CHGNetCalculator"
             }
         ```
-    args : optional args to pass to a calculator
+    default_dtype (str or pytorch dtype) : optional pytorch dtype to use if applicable
     kwargs : optional kwargs to pass to a calculator
 
     Returns
@@ -283,6 +291,15 @@ def ase_calculator(
                 calculator = getattr(import_module(_mod), _cls, None)(**kwargs)
 
             case MLFF.CHGNet | MLFF.M3GNet | MLFF.MATPES_R2SCAN | MLFF.MATPES_PBE:
+                if calculator_name == MLFF.CHGNet:
+                    # Legacy interface to `chgnet` package
+                    try:
+                        from chgnet.model.dynamics import CHGNetCalculator
+
+                        return CHGNetCalculator(**kwargs)
+                    except ImportError:
+                        pass
+
                 import matgl
 
                 match calculator_name:
@@ -292,13 +309,12 @@ def ase_calculator(
                     case MLFF.CHGNet:
                         path = kwargs.get("path", "CHGNet-MPtrj-2023.12.1-2.7M-PES")
                         matgl.config.BACKEND = "DGL"
+
                         warnings.warn(
                             "The CHGNet functionality in atomate2 has been migrated "
                             "from the `chgnet` package to `matgl` to ensure continuing "
                             "support. If you want to use the `chgnet` package, "
-                            "`pip install chgnet` and then specify "
-                            '`calculator_meta = {"@module": "chgnet.model.dynamics", '
-                            '"@callable": "CHGNetCalculator"}`',
+                            "`pip install chgnet`",
                             stacklevel=2,
                         )
                     case MLFF.MATPES_R2SCAN | MLFF.MATPES_PBE:
@@ -309,6 +325,9 @@ def ase_calculator(
                             "-PES"
                         )
                         matgl.config.BACKEND = "PYG"
+
+                if default_dtype is not None:
+                    matgl.set_default_dtype(default_dtype)
 
                 matgl_calc = getattr(
                     import_module(f"matgl.ext._ase_{matgl.config.BACKEND.lower()}"),
@@ -328,6 +347,7 @@ def ase_calculator(
                     calculator = MACECalculator(
                         model_paths=model_path,
                         device=device,
+                        default_dtype=default_dtype or "",
                         **kwargs,
                     )
 
@@ -345,18 +365,20 @@ def ase_calculator(
                             "damping": "bj",
                             "xc": "pbe",
                             "cutoff": 40.0 * Bohr,
-                            "dtype": kwargs.get(
-                                "default_dtype", torch.get_default_dtype()
-                            ),
+                            "dtype": default_dtype or torch.get_default_dtype(),
                         }
-                        for k, v in default_d3_kwargs.items():
-                            if k not in kwargs:
-                                kwargs[k] = v
+                        kwargs.update(
+                            {
+                                k: v
+                                for k, v in default_d3_kwargs.items()
+                                if k not in kwargs
+                            }
+                        )
 
                         d3_calc = TorchDFTD3Calculator(device=device, **kwargs)
                         calculator = SumCalculator([calculator, d3_calc])
                 else:
-                    calculator = mace_mp(**kwargs)
+                    calculator = mace_mp(default_dtype=default_dtype or "", **kwargs)
 
             case MLFF.Nequip | MLFF.Allegro:
                 from nequip.integrations.ase import NequIPCalculator
@@ -431,7 +453,13 @@ def _get_pkg_name(calculator_meta: MLFF | dict[str, Any]) -> str | None:
         match calculator_meta:
             case MLFF.Allegro | MLFF.Nequip:
                 ff_pkg = "nequip"
-            case MLFF.CHGNet | MLFF.M3GNet | MLFF.MATPES_PBE | MLFF.MATPES_R2SCAN:
+            case MLFF.CHGNet:
+                # Check if CHGNet is installed
+                try:
+                    ff_pkg = next(pkg for pkg in ("chgnet", "matgl") if find_spec(pkg))
+                except StopIteration:
+                    ff_pkg = None
+            case MLFF.M3GNet | MLFF.MATPES_PBE | MLFF.MATPES_R2SCAN:
                 ff_pkg = "matgl"
             case MLFF.DeepMD:
                 ff_pkg = "deepmd-kit"
