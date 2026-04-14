@@ -28,6 +28,7 @@ class CalcType(ValueEnum):
     LDA_PZ = "lda-PZ"
     LDA_TETER = "lda-Teter"
     LDA_VWN = "lda-VWN"
+    MGGA_R2SCAN = "mgga-c-r2scan"
     MGGA_REVTPSS = "mgga-revTPSS"
     MGGA_TPSS = "mgga-TPSS"
     ORB_GLLBSC = "orb-GLLBsc"
