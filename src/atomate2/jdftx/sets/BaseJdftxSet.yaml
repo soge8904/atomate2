@@ -1,7 +1,7 @@
 # Default JDFTx settings for atomate2 calculations.
 ### Functional ###
 elec-ex-corr: gga
-van-der-waals: D3
+#van-der-waals: D3
 
 ### Electronic Parameters ###
 elec-cutoff:
